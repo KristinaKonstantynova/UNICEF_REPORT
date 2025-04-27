@@ -1,0 +1,305 @@
+---
+title: "<span style='color:#8B0000; font-size:32px; font-weight:bold; font-family:Georgia, Times, serif;'>The hidden truth: physical violence against children around the world</span>"
+
+
+author: "Kristina Konstantynova" 
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+    theme: flatly
+    toc: true
+    toc-depth: 2
+    toc-title: "Contents"
+editor: visual
+---
+
+# 
+
+# Introduction
+
+According to UNICEF, nearly **400 million children under the age of 5** regularly experience violent discipline, including physical punishment and psychological aggression.
+
+> Physical violence against children, though universally condemned, remains prevalent across various parts of the world.\
+> Despite progress in human rights, **physical punishment continues to be accepted and practiced** in many regions due to cultural norms, historical contexts, and economic challenges.
+
+This report aims to raise public awareness about this ongoing issue by analyzing global legislation, regional differences, and the evolution of protection laws over time.
+
+The **UNICEF Indicator 2 and UNICEF metadata** are used as primary sources. This analysis can be complemented with a [Tableau Dashboard](https://public.tableau.com/app/profile/kristina.konstantynova/viz/TableauProject_17426360290860/Tableaudebord12#1) to provide interactive visual insights.
+
+![](photo.webp){fig-align="left" width="469"}
+
+*`“The silence of pain is often louder than words.”`*
+
+------------------------------------------------------------------------
+
+# 🌍 Global Map of Support for Physical Punishment
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Load libraries
+library(tidyverse)
+library(readr)
+library(sf)
+library(rnaturalearth)
+library(viridis)
+
+# Load the data
+df <- read_delim("data/V4 unicef_indicator_2.csv", delim = ";", show_col_types = FALSE)
+
+# Load world map
+world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+
+# Prepare map data
+df_map <- df %>%
+  filter(sex == "Total", !is.na(obs_value)) %>%
+  group_by(alpha_3_code, country) %>%
+  summarise(avg_support = mean(obs_value, na.rm = TRUE), .groups = "drop")
+
+map_data <- left_join(world, df_map, by = c("iso_a3" = "alpha_3_code"))
+
+# Create the static ggplot map
+ggplot(map_data) +
+  geom_sf(aes(fill = avg_support), color = "white", size = 0.1) +
+  scale_fill_gradient(low = "#fee5d9", high = "#a50f15", na.value = "grey90", name = "% Support") +
+  labs(
+    title = "Global Distribution of Physical Punishment Support",
+    subtitle = "Percentage of adults who believe physical punishment is necessary",
+    fill = "% Support"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(color = "#8B0000", size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5)
+  )
+```
+
+**Across the world, physical punishment remains deeply ingrained in many cultures.**\
+While some regions have made progress in reducing its acceptance, others continue to grapple with widespread support for corporal punishment.\
+**This map shows just how diverse the situation is:**
+
+-   Oceania and parts of Africa still show high levels of support,
+
+-   while Europe has made remarkable progress, with much lower acceptance.
+
+------------------------------------------------------------------------
+
+# 📊 Support by Continent
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Prepare the continent data
+continent_chart <- df %>%
+  filter(sex == "Total", !is.na(obs_value), !is.na(continents)) %>%
+  group_by(continents) %>%
+  summarise(support_pct = round(mean(obs_value, na.rm = TRUE)), .groups = "drop") %>%
+  arrange(desc(support_pct))
+
+# Create the static ggplot bar chart
+ggplot(continent_chart, aes(x = reorder(continents, support_pct), y = support_pct, fill = support_pct)) +
+  geom_col(width = 0.7) +
+  coord_flip() +
+  scale_fill_gradient(low = "#fee5d9", high = "#a50f15") +
+  labs(
+    title = "Where People Most Support Physical Punishment (by Continent)",
+    x = "",
+    y = "Support (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(color = "#8B0000", size = 16, face = "bold", hjust = 0.5),
+    axis.text = element_text(size = 11),
+    axis.title.y = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(aes(label = paste0(support_pct, "%")), hjust = -0.2, size = 4)
+```
+
+**Looking at the continents, we see stark differences in attitudes toward physical punishment.**
+
+-   **Oceania**, for instance, shows consistently high levels of support for physical punishment, despite modern living conditions.
+
+-   **Africa** also continues to show higher levels of acceptance, driven in part by cultural traditions and economic factors.
+
+-    In contrast, **Europe** stands out with a significant decline in support — a shift largely due to legal reforms and a cultural movement toward non-violent child-rearing.
+
+# 🎯 **Focus on Top 10 Supporting Countries** 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(readr)
+
+# Load your data
+df <- read_delim("data/V4 unicef_indicator_2.csv", delim = ";", show_col_types = FALSE)
+
+# Prepare Top 10 countries
+top10_countries <- df %>%
+  filter(sex == "Total", !is.na(obs_value)) %>%
+  group_by(country) %>%
+  summarise(support_pct = mean(obs_value, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(support_pct)) %>%
+  slice_max(order_by = support_pct, n = 10)
+
+# Create bubble chart
+ggplot(top10_countries, aes(x = support_pct, y = reorder(country, support_pct), size = support_pct, fill = support_pct)) +
+  geom_point(shape = 21, color = "white", alpha = 0.9) +
+  scale_size(range = c(15, 50)) +  # Bigger bubbles
+  scale_fill_gradient(low = "#fee5d9", high = "#a50f15") +
+  geom_text(aes(label = paste0(round(support_pct), "%")), color = "white", size = 5, vjust = 0.5, fontface = "bold") +
+  labs(
+    title = "Top 10 Countries Supporting Physical Punishment",
+    x = NULL,
+    y = NULL,
+    size = "% Support",
+    fill = "% Support"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(color = "#8B0000", size = 18, face = "bold", hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+
+```
+
+Countries like **Sweden** and **Germany** have fully rejected physical punishment due to strong legal frameworks and progressive cultural shifts. However, nations in Oceania and Africa, such as **Samoa** and **Nigeria**, still show high levels of support, reflecting the persistence of historical practices and deep-rooted cultural beliefs.
+
+# 💰 Economic Context: GDP vs Support
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(readr)
+library(plotly)
+
+# Load datasets
+df <- read_delim("data/V4 unicef_indicator_2.csv", delim = ";", show_col_types = FALSE)
+metadata <- read_csv("data/unicef_metadata.csv")
+
+# Prepare support data
+support_avg <- df %>%
+  filter(sex == "Total", 
+         str_detect(indicator, regex("physical punishment", ignore_case = TRUE)), 
+         !is.na(obs_value)) %>%
+  group_by(country, continents) %>%
+  summarise(support_pct = mean(obs_value, na.rm = TRUE), .groups = "drop")
+
+# Prepare GDP data
+gdp_df <- metadata %>%
+  select(country, `GDP per capita (constant 2015 US$)`) %>%
+  rename(gdp_per_capita = `GDP per capita (constant 2015 US$)`)
+
+# Merge
+scatter_df <- left_join(support_avg, gdp_df, by = "country") %>%
+  filter(!is.na(gdp_per_capita))
+
+# Create interactive scatterplot
+plot_ly(
+  data = scatter_df,
+  x = ~gdp_per_capita,
+  y = ~support_pct,
+  color = ~continents,   # Color by continent
+  type = 'scatter',
+  mode = 'markers',
+  marker = list(size = 10, opacity = 0.8, line = list(width = 0.5, color = 'grey')),
+  text = ~paste("<b>", country, "</b><br>Continent:", continents, "<br>GDP: $", round(gdp_per_capita), "<br>Support:", round(support_pct), "%"),
+  hoverinfo = 'text'
+) %>% layout(
+  title = list(text = '<b style="color:#8B0000;">GDP per Capita vs Support for Physical Punishment</b>'),
+  xaxis = list(title = "GDP per Capita (USD)"),
+  yaxis = list(title = "Physical Punishment Support (%)"),
+  legend = list(title = list(text = '<b>Continent</b>'))
+)
+```
+
+There is a clear connection between economic conditions and support for physical punishment.\
+In wealthier countries, where economic stability and education are more accessible, support for physical punishment tends to be lower.\
+In contrast, poorer regions like **Africa** still see high levels of corporal punishment, driven by poverty, lack of education, and social stress.
+
+However, some wealthy countries, such as those in **Oceania**, still show significant support for physical punishment — suggesting that cultural norms play a strong role alongside economic factors.\
+This underscores the **complex relationship between economic growth, cultural traditions, and disciplinary practices**.
+
+------------------------------------------------------------------------
+
+# 📈 Trend Over Time
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(plotly)
+
+# Load dataset
+df <- read_delim("data/V4 unicef_indicator_2.csv", delim = ";", show_col_types = FALSE)
+
+# Prepare time series data
+ts_df <- df %>%
+  filter(
+    sex == "Total",
+    str_detect(indicator, regex("physical punishment", ignore_case = TRUE)),
+    !is.na(obs_value),
+    !is.na(continents)
+  ) %>%
+  group_by(time_period, continents) %>%
+  summarise(support_pct = mean(obs_value, na.rm = TRUE), .groups = "drop")
+
+# Create interactive line chart
+plot_ly(
+  data = ts_df,
+  x = ~time_period,
+  y = ~support_pct,
+  color = ~continents,
+  type = 'scatter',
+  mode = 'lines+markers',
+  text = ~paste("<b>", continents, "</b><br>Year:", time_period, "<br>Support:", round(support_pct), "%"),
+  hoverinfo = 'text',
+  line = list(width = 2)
+) %>% layout(
+  title = list(text = '<b style="color:#8B0000;">Trends in Physical Punishment Support by Continent</b>'),
+  xaxis = list(title = "Year"),
+  yaxis = list(title = "Support (%)"),
+  legend = list(title = list(text = '<b>Continent</b>'))
+)
+```
+
+Looking at trends over time, we can see that attitudes have changed in many regions.\
+While some countries — particularly in **Europe** — have consistently reduced support, others like those in **Oceania** and **Africa** remain high.
+
+Though global trends have evolved over time, the year **2020** stands out, particularly in Oceania.\
+The sharp rise in support for physical punishment — jumping from **38% to 86%** — points to a deeper societal change, likely influenced by the **COVID-19 pandemic** and the stresses that came with it.
+
+This shift illustrates how **external pressures** can force societies to revisit long-standing practices and attitudes toward discipline.
+
+------------------------------------------------------------------------
+
+# ❓ Why Some Countries Still Support Physical Punishment
+
+Click each icon to understand the key drivers:
+
+```{=html}
+<div style="display: flex; justify-content: space-around; margin-top: 2em; margin-bottom: 2em;">
+  <div onclick="alert('In many cultures, physical punishment is deeply rooted in traditional views of discipline. It is often seen as a sign of strong parenting and is normalized through generations.')">🏛️ <b>Cultural Traditions and Norms</b></div>
+  <div onclick="alert('Poverty, social stress, and lack of educational access increase frustration and normalize violence. Parents under economic strain may resort to stricter, harsher methods of control.')">💰 <b>Economic and Social Factors</b></div>
+  <div onclick="alert('In some countries, there are no laws banning physical punishment at home or in schools. Even where laws exist, they may not be enforced, allowing the practice to persist unchecked.')">⚖️ <b>Legal and Institutional Frameworks</b></div>
+  <div onclick="alert('Certain interpretations of religious texts promote physical discipline as a moral or righteous act. This creates strong resistance to legal reforms or cultural change.')">✝️ <b>Religious Beliefs</b></div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+# 🛠️ How to Change It
+
+![](saudi-arabia.jpg){fig-align="center" width="352"}
+
+**Physical punishment is not a thing of the past** — it remains a global issue shaped by **culture, economics, and history**.\
+While some regions are progressing through reforms, others — especially in **Oceania** and **Africa** — face significant challenges.\
+The path forward requires:
+
+-   Legal reforms
+-   Cultural change
+-   Increased awareness
+
+👉 [**Donate Now**](https://www.unicef.ie/donate/?c=694#1) to support change and protect children's rights.
+
+![](donate-button-icon-on-white-background-red-button-with-red-heart-sign-volunteering-symbol-flat-style-vector.jpg){width="152" height="40"}
+
+*Together, we can raise awareness and fight for a better future for children. ❤️*
